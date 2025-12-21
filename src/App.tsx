@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AppConfig, UserSession, showConnect } from '@stacks/connect';
+
+// Stacks Authentication Configuration
+const appConfig = new AppConfig(['store_write', 'publish_data']);
+const userSession = new UserSession({ appConfig });
 
 // Mock Data for UI Demonstration
 const MOCK_DATASETS = [
@@ -9,6 +14,41 @@ const MOCK_DATASETS = [
 
 function App() {
     const [activeTab, setActiveTab] = useState('browse');
+    const [userData, setUserData] = useState<any>(null);
+
+    useEffect(() => {
+        if (userSession.isSignInPending()) {
+            userSession.handlePendingSignIn().then((userData) => {
+                setUserData(userData);
+            });
+        } else if (userSession.isUserSignedIn()) {
+            setUserData(userSession.loadUserData());
+        }
+    }, []);
+
+    const connectWallet = () => {
+        showConnect({
+            appDetails: {
+                name: 'Atmos',
+                icon: window.location.origin + '/favicon.ico',
+            },
+            onFinish: () => {
+                const userData = userSession.loadUserData();
+                setUserData(userData);
+            },
+            userSession,
+        });
+    };
+
+    const disconnectWallet = () => {
+        userSession.signUserOut();
+        setUserData(null);
+    };
+
+    const truncateAddress = (address: string) => {
+        if (!address) return '';
+        return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    };
 
     return (
         <div className="min-h-screen pb-12">
@@ -36,9 +76,26 @@ function App() {
                                 >
                                     My Datasets
                                 </button>
-                                <button className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all border border-white/10">
-                                    Connect Wallet
-                                </button>
+                                {userData ? (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-gray-400 text-sm font-mono">
+                                            {truncateAddress(userData.profile.stxAddress.mainnet)}
+                                        </span>
+                                        <button 
+                                            onClick={disconnectWallet}
+                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-medium transition-all border border-red-500/20"
+                                        >
+                                            Disconnect
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={connectWallet}
+                                        className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all border border-white/10"
+                                    >
+                                        Connect Wallet
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
